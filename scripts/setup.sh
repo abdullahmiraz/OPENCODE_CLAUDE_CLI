@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# OpenCode Go + Claude Code setup — choose auto or manual at start.
+# OpenCode Go + Claude Code setup — auto (fast) or guided (yes/no per step).
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -11,43 +11,16 @@ info()  { echo "  $*"; }
 step()  { echo ""; echo "==> $*"; }
 fail()  { echo ""; echo "BLOCKED: $*" >&2; echo "Fix the issue above, then run this script again." >&2; exit 1; }
 
-show_manual() {
-  cat <<'EOF'
+pause() {
+  echo ""
+  read -rp "Press Enter to continue (or Ctrl+C to stop)... "
+  echo ""
+}
 
-MANUAL SETUP — do these steps yourself, then run: claude
-
-  1. Get API key from https://opencode.ai (Zen -> Go)
-
-  2. Install routatic-proxy
-       Windows:  scoop bucket add routatic https://github.com/routatic/scoop-bucket
-                 scoop install routatic-proxy
-       Mac/Linux: brew tap routatic/tap && brew install routatic-proxy
-
-  3. Install Claude Code CLI
-       npm install -g @anthropic-ai/claude-code
-
-  4. Copy proxy config
-       mkdir -p ~/.config/routatic-proxy
-       cp templates/routatic-proxy.config.json ~/.config/routatic-proxy/config.json
-       Edit that file and set your api_key
-
-  5. Copy Claude settings
-       mkdir -p ~/.claude
-       cp templates/claude-settings.json ~/.claude/settings.json
-       (or merge the "env" block if you already have settings.json)
-
-  6. Start proxy
-       routatic-proxy serve -b
-
-  7. Verify (no tokens)
-       bash scripts/check.sh
-
-  8. Run
-       claude
-
-Full details: BEGINNER-SETUP.md or README.md
-
-EOF
+confirm() {
+  local msg="$1"
+  read -rp "${msg} [y/N] " ans
+  [[ "${ans,,}" == "y" || "${ans,,}" == "yes" ]]
 }
 
 SETUP_MODE=""
@@ -57,13 +30,13 @@ choose_mode() {
   echo "==========================================" >&2
   echo "" >&2
   echo "Choose one:" >&2
-  echo "  1) Auto   — script installs and configures everything" >&2
-  echo "  2) Manual — print steps, you do them yourself" >&2
+  echo "  1) Auto    — runs all steps automatically" >&2
+  echo "  2) Guided  — same steps, asks yes/no before each one" >&2
   echo "" >&2
   read -rp "Enter 1 or 2: " choice
   case "${choice:-}" in
     1|auto|Auto|AUTO) SETUP_MODE="auto" ;;
-    2|manual|Manual|MANUAL) SETUP_MODE="manual" ;;
+    2|guided|Guided|GUIDED|manual|Manual|MANUAL) SETUP_MODE="guided" ;;
     *) echo "Invalid choice. Enter 1 or 2." >&2; exit 1 ;;
   esac
 }
@@ -74,23 +47,22 @@ load_api_key() {
     source "$ENV_FILE"
   fi
   if [[ -z "${OPENCODE_GO_API_KEY:-}" ]]; then
-    step "API key"
+    step "STEP 1/8 — API key"
     info "Get it from: https://opencode.ai -> Zen -> Go"
-    read -rsp "Paste your API key: " OPENCODE_GO_API_KEY
+    read -rsp "  Paste your API key: " OPENCODE_GO_API_KEY
     echo ""
     [[ -n "$OPENCODE_GO_API_KEY" ]] || fail "API key is required."
     echo "OPENCODE_GO_API_KEY=${OPENCODE_GO_API_KEY}" > "$ENV_FILE"
     chmod 600 "$ENV_FILE"
     info "Saved to ${ENV_FILE}"
   else
-    step "API key"
+    step "STEP 1/8 — API key"
     info "Using key from ${ENV_FILE}"
   fi
   export ROUTATIC_PROXY_API_KEY="$OPENCODE_GO_API_KEY"
 }
 
 install_routatic() {
-  step "Install routatic-proxy"
   if command -v routatic-proxy >/dev/null 2>&1; then
     info "Already installed: $(routatic-proxy --version 2>/dev/null || true)"
     return 0
@@ -111,7 +83,6 @@ install_routatic() {
 }
 
 install_claude() {
-  step "Install Claude Code CLI"
   if command -v claude >/dev/null 2>&1; then
     info "Already installed."
     return 0
@@ -131,7 +102,6 @@ to_native_path() {
 }
 
 write_proxy_config() {
-  step "Write proxy config -> ${PROXY_DIR}/config.json"
   mkdir -p "$PROXY_DIR"
   cp "${REPO_ROOT}/templates/routatic-proxy.config.json" "${PROXY_DIR}/config.json"
   local cfg
@@ -157,7 +127,6 @@ p.write_text(p.read_text().replace('\${ROUTATIC_PROXY_API_KEY}', os.environ['API
 }
 
 write_claude_settings() {
-  step "Write Claude settings -> ${CLAUDE_DIR}/settings.json"
   mkdir -p "$CLAUDE_DIR"
   local settings template
   settings="$(to_native_path "${CLAUDE_DIR}/settings.json")"
@@ -182,7 +151,6 @@ write_claude_settings() {
 }
 
 start_proxy() {
-  step "Start routatic-proxy on http://127.0.0.1:3456"
   routatic-proxy stop 2>/dev/null || true
   ROUTATIC_PROXY_API_KEY="$OPENCODE_GO_API_KEY" routatic-proxy serve -b
   sleep 2
@@ -190,37 +158,119 @@ start_proxy() {
 }
 
 enable_autostart() {
-  step "Enable autostart on login"
   routatic-proxy autostart enable 2>/dev/null || info "Autostart not supported on this OS (start manually after reboot)."
 }
 
 verify_setup() {
-  step "Verify (local checks only, no tokens)"
   bash "${REPO_ROOT}/scripts/check.sh" || true
 }
 
-run_auto() {
-  load_api_key
-  install_routatic
-  install_claude
-  write_proxy_config
-  write_claude_settings
-  start_proxy
-  enable_autostart
-  verify_setup
+print_done() {
+  local label="$1"
   echo ""
   echo "=========================================="
-  echo "  Auto setup complete. Run:  claude"
+  echo "  ${label} setup complete. Run:  claude"
   echo "  After reboot:             claude"
   echo "    (if autostart worked)   or: routatic-proxy serve -b"
   echo "  Re-check:                 bash scripts/check.sh"
   echo "=========================================="
 }
 
-choose_mode
-if [[ "$SETUP_MODE" == "manual" ]]; then
-  show_manual
-  exit 0
-fi
+run_auto() {
+  load_api_key
+  step "STEP 2/8 — Install routatic-proxy"
+  install_routatic
+  step "STEP 3/8 — Install Claude Code CLI"
+  install_claude
+  step "STEP 4/8 — Write proxy config -> ${PROXY_DIR}/config.json"
+  write_proxy_config
+  step "STEP 5/8 — Write Claude settings -> ${CLAUDE_DIR}/settings.json"
+  write_claude_settings
+  step "STEP 6/8 — Start routatic-proxy on http://127.0.0.1:3456"
+  start_proxy
+  step "STEP 7/8 — Enable autostart on login"
+  enable_autostart
+  step "STEP 8/8 — Verify (local checks only, no tokens)"
+  verify_setup
+  print_done "Auto"
+}
 
-run_auto
+run_guided() {
+  echo ""
+  echo "Guided setup — you confirm each step before it runs."
+  echo "Paths:"
+  echo "  Proxy config  -> ${PROXY_DIR}/config.json"
+  echo "  Claude config -> ${CLAUDE_DIR}/settings.json"
+  pause
+
+  load_api_key
+  pause
+
+  step "STEP 2/8 — Install routatic-proxy"
+  if command -v routatic-proxy >/dev/null 2>&1; then
+    info "Already installed: $(routatic-proxy --version 2>/dev/null || true)"
+  elif confirm "  Install routatic-proxy now?"; then
+    install_routatic
+  else
+    fail "Install routatic-proxy manually, then re-run this script."
+  fi
+  pause
+
+  step "STEP 3/8 — Install Claude Code CLI"
+  if command -v claude >/dev/null 2>&1; then
+    info "Already installed."
+  elif confirm "  Run: npm install -g @anthropic-ai/claude-code ?"; then
+    install_claude
+  else
+    fail "Install claude manually, then re-run this script."
+  fi
+  pause
+
+  step "STEP 4/8 — Copy proxy config"
+  info "FROM: ${REPO_ROOT}/templates/routatic-proxy.config.json"
+  info "TO:   ${PROXY_DIR}/config.json"
+  if confirm "  Copy template and write your API key?"; then
+    write_proxy_config
+    info "Done."
+  else
+    info "Skipped — copy template yourself (see README)."
+  fi
+  pause
+
+  step "STEP 5/8 — Claude Code settings"
+  info "FROM: ${REPO_ROOT}/templates/claude-settings.json"
+  info "TO:   ${CLAUDE_DIR}/settings.json"
+  if confirm "  Copy or merge Claude settings?"; then
+    write_claude_settings
+    info "Done."
+  else
+    info "Skipped — merge template yourself (see README)."
+  fi
+  pause
+
+  step "STEP 6/8 — Start routatic-proxy"
+  if confirm "  Start proxy in background on http://127.0.0.1:3456 ?"; then
+    start_proxy
+  else
+    info "Skipped — run later: routatic-proxy serve -b"
+  fi
+  pause
+
+  step "STEP 7/8 — Autostart on login (optional)"
+  if confirm "  Enable autostart?"; then
+    enable_autostart
+  else
+    info "Skipped."
+  fi
+  pause
+
+  verify_setup
+  print_done "Guided"
+}
+
+choose_mode
+if [[ "$SETUP_MODE" == "guided" ]]; then
+  run_guided
+else
+  run_auto
+fi

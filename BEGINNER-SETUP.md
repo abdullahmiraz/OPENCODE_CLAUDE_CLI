@@ -7,7 +7,7 @@ It explains:
 
 - What `~/.config/routatic-proxy/config.json` is and where it comes from
 - What Scoop is and how to install it (Windows)
-- Two ways to set up: **manual** (you do each step) or **guided script** (pauses and asks before each step)
+- Two ways to set up: **guided** (yes/no before each step) or **auto** (runs everything)
 - How to verify without spending API credits
 
 ---
@@ -235,13 +235,13 @@ claude
 
 ---
 
-# Option B — Guided script
+# Option B — Setup script
 
-Run the script and pick **1 (auto)** or **2 (manual)** at the start.
+Run the script and pick **1 (auto)** or **2 (guided)** at the start.
 
-**Auto** runs everything for you (install routatic-proxy, install `claude`, copy configs, start proxy, enable autostart). If something is missing (Scoop, Node, etc.), it stops and tells you what to install manually — then re-run the script.
+**Auto** runs all steps without asking (install routatic-proxy, install `claude`, copy configs, start proxy, enable autostart). If something is missing (Scoop, Node, etc.), it stops and tells you what to install — then re-run the script.
 
-**Manual** prints the same steps as Option A above and exits.
+**Guided** does the **same steps** but asks **yes/no before each one** — like consent, not DIY. The script still installs and configures; you just confirm each action.
 
 **Windows:**
 
@@ -261,8 +261,8 @@ At the prompt:
 
 ```
 Choose one:
-  1) Auto   — script installs and configures everything
-  2) Manual — print steps, you do them yourself
+  1) Auto    — runs all steps automatically
+  2) Guided  — same steps, asks yes/no before each one
 
 Enter 1 or 2:
 ```
