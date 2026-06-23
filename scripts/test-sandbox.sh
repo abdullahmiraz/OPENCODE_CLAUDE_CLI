@@ -89,15 +89,15 @@ if echo "$OUT_GUIDED" | grep -q "Guided setup"; then
 else
   bad "Guided mode missing Guided setup header"
 fi
-if echo "$OUT_GUIDED" | grep -q 'y/N'; then
-  ok "Guided mode asks yes/no confirmations"
-else
-  bad "Guided mode missing y/N prompts"
-fi
 if echo "$OUT_GUIDED" | grep -q "Guided setup complete"; then
   ok "Guided mode completes when confirmed"
 else
   bad "Guided mode did not complete"
+fi
+if [[ -f "$HOME/.config/routatic-proxy/config.json" ]] && grep -q "sk-sandbox-guided-key" "$HOME/.config/routatic-proxy/config.json"; then
+  ok "Guided mode wrote proxy config after consent"
+else
+  bad "Guided mode did not write proxy config"
 fi
 echo ""
 
