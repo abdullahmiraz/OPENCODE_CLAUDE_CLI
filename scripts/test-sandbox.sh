@@ -82,7 +82,7 @@ setup_sandbox_env
 echo "TEST 1 — Guided mode (choice 2, yes/no consent)"
 echo "------------------------------------------"
 # Pauses need bare Enter; confirms need y+Enter (alternating)
-GUIDED_INPUT=$'2\n\nsk-sandbox-guided-key\n\n\n\ny\n\ny\n\ny\n\ny\n\n'
+GUIDED_INPUT=$'2\nsk-sandbox-guided-key\ny\ny\ny\ny\n'
 OUT_GUIDED="$(printf '%s' "$GUIDED_INPUT" | bash "$REPO/scripts/setup.sh" 2>&1)" || true
 if echo "$OUT_GUIDED" | grep -q "Guided setup"; then
   ok "Guided mode shows consent flow"

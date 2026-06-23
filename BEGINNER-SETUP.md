@@ -241,7 +241,10 @@ Run the script and pick **1 (auto)** or **2 (guided)** at the start.
 
 **Auto** runs all steps without asking (install routatic-proxy, install `claude`, copy configs, start proxy, enable autostart). If something is missing (Scoop, Node, etc.), it stops and tells you what to install — then re-run the script.
 
-**Guided** does the **same steps** but asks **yes/no before each one** — like consent, not DIY. The script still installs and configures; you just confirm each action.
+**Guided** does the **same steps** but asks before each one:
+
+- **y** or **Enter** = yes, go ahead  
+- **n** = no, skip (install steps fail if you say no)
 
 **Windows:**
 
@@ -262,7 +265,7 @@ At the prompt:
 ```
 Choose one:
   1) Auto    — runs all steps automatically
-  2) Guided  — same steps, asks yes/no before each one
+  2) Guided  — same steps, asks y/Enter=yes or n=no before each one
 
 Enter 1 or 2:
 ```

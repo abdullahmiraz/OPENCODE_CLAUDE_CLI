@@ -12,15 +12,9 @@ function Write-Step($msg) {
 
 function Write-Info($msg) { Write-Host "  $msg" }
 
-function Pause-Step {
-    Write-Host ""
-    Read-Host "Press Enter to continue (or Ctrl+C to stop)"
-    Write-Host ""
-}
-
 function Confirm-Step($msg) {
-    $ans = Read-Host "$msg [y/N]"
-    return ($ans -eq 'y' -or $ans -eq 'Y' -or $ans -eq 'yes')
+    $ans = Read-Host "$msg [Y/n] (y or Enter=yes, n=no)"
+    return ($ans -eq '' -or $ans -eq 'y' -or $ans -eq 'Y' -or $ans -eq 'yes')
 }
 
 function Stop-Blocked($msg) {
@@ -57,9 +51,8 @@ function Get-ApiKey {
     if (-not $key) {
         Write-Step "STEP 1/8 - API key"
         Write-Info "Get it from: https://opencode.ai -> Zen -> Go"
-        $secure = Read-Host "  Paste your API key" -AsSecureString
-        $key = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
-            [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure))
+        Write-Info "Paste your key and press Enter (saved to .env, gitignored)"
+        $key = Read-Host "  API key"
         if (-not $key) { Stop-Blocked "API key is required." }
         "OPENCODE_GO_API_KEY=$key" | Set-Content $EnvFile -Encoding UTF8
         Write-Info "Saved to $EnvFile"
@@ -173,14 +166,12 @@ function Run-Auto {
 
 function Run-Guided {
     Write-Host ""
-    Write-Host "Guided setup - you confirm each step before it runs."
-    Write-Host "Paths:"
+    Write-Host "Guided setup - y or Enter = yes, n = no."
     Write-Host "  Proxy config  -> $ProxyDir\config.json"
     Write-Host "  Claude config -> $ClaudeDir\settings.json"
-    Pause-Step
+    Write-Host ""
 
     $apiKey = Get-ApiKey
-    Pause-Step
 
     Write-Step "STEP 2/8 - Install routatic-proxy"
     if (Get-Command routatic-proxy -ErrorAction SilentlyContinue) {
@@ -190,7 +181,6 @@ function Run-Guided {
     } else {
         Stop-Blocked "Install routatic-proxy manually, then re-run."
     }
-    Pause-Step
 
     Write-Step "STEP 3/8 - Install Claude Code CLI"
     if (Get-Command claude -ErrorAction SilentlyContinue) {
@@ -203,7 +193,6 @@ function Run-Guided {
     } else {
         Stop-Blocked "Install claude manually, then re-run."
     }
-    Pause-Step
 
     Write-Step "STEP 4/8 - Copy proxy config"
     Write-Info "FROM: $RepoRoot\templates\routatic-proxy.config.json"
@@ -213,7 +202,6 @@ function Run-Guided {
     } else {
         Write-Info "Skipped - copy template yourself (see README)."
     }
-    Pause-Step
 
     Write-Step "STEP 5/8 - Claude Code settings"
     Write-Info "FROM: $RepoRoot\templates\claude-settings.json"
@@ -223,7 +211,6 @@ function Run-Guided {
     } else {
         Write-Info "Skipped."
     }
-    Pause-Step
 
     Write-Step "STEP 6/8 - Start routatic-proxy"
     if (Confirm-Step "  Start proxy on http://127.0.0.1:3456 ?") {
@@ -231,7 +218,6 @@ function Run-Guided {
     } else {
         Write-Info "Skipped - run later: routatic-proxy serve -b"
     }
-    Pause-Step
 
     Write-Step "STEP 7/8 - Autostart on login (optional)"
     if (Confirm-Step "  Enable autostart?") {
@@ -239,7 +225,6 @@ function Run-Guided {
     } else {
         Write-Info "Skipped."
     }
-    Pause-Step
 
     Write-Step "STEP 8/8 - Verify"
     Verify-Setup

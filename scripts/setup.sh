@@ -11,16 +11,10 @@ info()  { echo "  $*"; }
 step()  { echo ""; echo "==> $*"; }
 fail()  { echo ""; echo "BLOCKED: $*" >&2; echo "Fix the issue above, then run this script again." >&2; exit 1; }
 
-pause() {
-  echo ""
-  read -rp "Press Enter to continue (or Ctrl+C to stop)... "
-  echo ""
-}
-
 confirm() {
   local msg="$1"
-  read -rp "${msg} [y/N] " ans
-  [[ "${ans,,}" == "y" || "${ans,,}" == "yes" ]]
+  read -rp "${msg} [Y/n] (y or Enter=yes, n=no): " ans
+  [[ -z "$ans" || "${ans,,}" == "y" || "${ans,,}" == "yes" ]]
 }
 
 SETUP_MODE=""
@@ -49,8 +43,8 @@ load_api_key() {
   if [[ -z "${OPENCODE_GO_API_KEY:-}" ]]; then
     step "STEP 1/8 — API key"
     info "Get it from: https://opencode.ai -> Zen -> Go"
-    read -rsp "  Paste your API key: " OPENCODE_GO_API_KEY
-    echo ""
+    info "Paste your key and press Enter (saved to .env, gitignored)"
+    read -rp "  API key: " OPENCODE_GO_API_KEY
     [[ -n "$OPENCODE_GO_API_KEY" ]] || fail "API key is required."
     echo "OPENCODE_GO_API_KEY=${OPENCODE_GO_API_KEY}" > "$ENV_FILE"
     chmod 600 "$ENV_FILE"
@@ -197,14 +191,12 @@ run_auto() {
 
 run_guided() {
   echo ""
-  echo "Guided setup — you confirm each step before it runs."
-  echo "Paths:"
+  echo "Guided setup — confirm each step: y or Enter = yes, n = no."
   echo "  Proxy config  -> ${PROXY_DIR}/config.json"
   echo "  Claude config -> ${CLAUDE_DIR}/settings.json"
-  pause
+  echo ""
 
   load_api_key
-  pause
 
   step "STEP 2/8 — Install routatic-proxy"
   if command -v routatic-proxy >/dev/null 2>&1; then
@@ -214,7 +206,6 @@ run_guided() {
   else
     fail "Install routatic-proxy manually, then re-run this script."
   fi
-  pause
 
   step "STEP 3/8 — Install Claude Code CLI"
   if command -v claude >/dev/null 2>&1; then
@@ -224,7 +215,6 @@ run_guided() {
   else
     fail "Install claude manually, then re-run this script."
   fi
-  pause
 
   step "STEP 4/8 — Copy proxy config"
   info "FROM: ${REPO_ROOT}/templates/routatic-proxy.config.json"
@@ -235,7 +225,6 @@ run_guided() {
   else
     info "Skipped — copy template yourself (see README)."
   fi
-  pause
 
   step "STEP 5/8 — Claude Code settings"
   info "FROM: ${REPO_ROOT}/templates/claude-settings.json"
@@ -246,7 +235,6 @@ run_guided() {
   else
     info "Skipped — merge template yourself (see README)."
   fi
-  pause
 
   step "STEP 6/8 — Start routatic-proxy"
   if confirm "  Start proxy in background on http://127.0.0.1:3456 ?"; then
@@ -254,7 +242,6 @@ run_guided() {
   else
     info "Skipped — run later: routatic-proxy serve -b"
   fi
-  pause
 
   step "STEP 7/8 — Autostart on login (optional)"
   if confirm "  Enable autostart?"; then
@@ -262,7 +249,6 @@ run_guided() {
   else
     info "Skipped."
   fi
-  pause
 
   verify_setup
   print_done "Guided"

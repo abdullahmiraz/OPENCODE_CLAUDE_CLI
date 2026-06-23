@@ -26,7 +26,7 @@ Claude Code CLI  →  routatic-proxy (localhost:3456)  →  OpenCode Go API
 Run the script and **choose 1 (auto) or 2 (guided)**:
 
 - **Auto** — installs routatic-proxy, Claude CLI, writes configs, starts proxy (no prompts)  
-- **Guided** — same steps, asks **yes/no** before each one (your consent)  
+- **Guided** — same steps, asks **y/Enter=yes** or **n=no** before each one (your consent)  
 
 If auto mode is blocked (e.g. Scoop or Node missing), it tells you what to install, then re-run the script.
 
