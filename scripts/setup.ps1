@@ -1,15 +1,35 @@
-# One-command setup: OpenCode Go + routatic-proxy + Claude Code CLI (Windows PowerShell)
+# Guided setup - pauses and asks before each step.
 $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path $PSScriptRoot -Parent
-
 $ClaudeDir  = "$env:USERPROFILE\.claude"
 $ProxyDir   = "$env:USERPROFILE\.config\routatic-proxy"
 $EnvFile    = Join-Path $RepoRoot ".env"
 
-Write-Host "==> OpenCode Go + Claude Code setup" -ForegroundColor Cyan
-Write-Host ""
+function Pause-Step {
+    Write-Host ""
+    Read-Host "Press Enter to continue (or Ctrl+C to stop)"
+    Write-Host ""
+}
 
-# Step 1: API key
+function Confirm-Step($msg) {
+    $ans = Read-Host "$msg [y/N]"
+    return ($ans -eq 'y' -or $ans -eq 'Y' -or $ans -eq 'yes')
+}
+
+Write-Host "==========================================" -ForegroundColor Cyan
+Write-Host "  OpenCode Go + Claude Code - guided setup"
+Write-Host "=========================================="
+Write-Host ""
+Write-Host "This script stops before each action."
+Write-Host "Paths on your PC:"
+Write-Host "  Proxy config  -> $ProxyDir\config.json"
+Write-Host "  Claude config -> $ClaudeDir\settings.json"
+Write-Host "  Templates from -> $RepoRoot\templates\"
+Pause-Step
+
+Write-Host "STEP 1/8 - OpenCode Go API key"
+Write-Host "  Get it from: https://opencode.ai -> Zen -> Go -> API key"
+Write-Host "  Saved to: $EnvFile (gitignored)"
 $ApiKey = $null
 if (Test-Path $EnvFile) {
     Get-Content $EnvFile | ForEach-Object {
@@ -17,98 +37,112 @@ if (Test-Path $EnvFile) {
     }
 }
 if (-not $ApiKey) {
-    Write-Host "Step 1: Enter your OpenCode Go API key"
-    Write-Host "  (from https://opencode.ai -> Zen -> Go -> API key)"
-    $Secure = Read-Host "API key" -AsSecureString
+    $Secure = Read-Host "  Paste your API key" -AsSecureString
     $ApiKey = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
         [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Secure))
-    if (-not $ApiKey) { throw "API key is required." }
+    if (-not $ApiKey) { throw "Key required." }
     "OPENCODE_GO_API_KEY=$ApiKey" | Set-Content $EnvFile -Encoding UTF8
-    Write-Host "  Saved to $EnvFile (gitignored)"
+    Write-Host "  Saved."
 } else {
-    Write-Host "Step 1: API key found in .env"
+    Write-Host "  Using key from existing .env"
 }
 $env:ROUTATIC_PROXY_API_KEY = $ApiKey
-Write-Host ""
+Pause-Step
 
-# Step 2: Install routatic-proxy
-Write-Host "Step 2: Install routatic-proxy"
+Write-Host "STEP 2/8 - Install routatic-proxy"
+Write-Host "  Scoop = Windows package installer (see README -> What is Scoop?)"
 if (Get-Command routatic-proxy -ErrorAction SilentlyContinue) {
-    Write-Host "  Already installed"
-} elseif (Get-Command scoop -ErrorAction SilentlyContinue) {
-    scoop bucket add routatic https://github.com/routatic/scoop-bucket 2>$null
-    scoop install routatic-proxy
+    Write-Host "  Already installed."
+} elseif (Confirm-Step "  Install routatic-proxy via Scoop?") {
+    if (Get-Command scoop -ErrorAction SilentlyContinue) {
+        scoop bucket add routatic https://github.com/routatic/scoop-bucket 2>$null
+        scoop install routatic-proxy
+    } else {
+        Write-Host "  Scoop not found. Install from https://scoop.sh then re-run."
+        exit 1
+    }
 } else {
-    throw "Install Scoop first, or install manually: https://github.com/routatic/proxy"
+    Write-Host "  Skipped - install manually."
+    exit 1
 }
-Write-Host ""
+Pause-Step
 
-# Step 3: Install Claude Code CLI
-Write-Host "Step 3: Install Claude Code CLI"
+Write-Host "STEP 3/8 - Install Claude Code CLI"
 if (Get-Command claude -ErrorAction SilentlyContinue) {
-    Write-Host "  Already installed"
-} else {
+    Write-Host "  Already installed."
+} elseif (Confirm-Step "  Run: npm install -g @anthropic-ai/claude-code ?") {
     npm install -g @anthropic-ai/claude-code
+} else {
+    Write-Host "  Skipped."
+    exit 1
 }
-Write-Host ""
+Pause-Step
 
-# Step 4: Proxy config
-Write-Host "Step 4: Write routatic-proxy config"
-New-Item -ItemType Directory -Force -Path $ProxyDir | Out-Null
-Copy-Item "$RepoRoot\templates\routatic-proxy.config.json" "$ProxyDir\config.json" -Force
-Write-Host "  -> $ProxyDir\config.json"
-Write-Host ""
+Write-Host "STEP 4/8 - Copy proxy config"
+Write-Host "  FROM: $RepoRoot\templates\routatic-proxy.config.json"
+Write-Host "  TO:   $ProxyDir\config.json"
+if (Confirm-Step "  Copy template and insert your API key?") {
+    New-Item -ItemType Directory -Force -Path $ProxyDir | Out-Null
+    $content = Get-Content "$RepoRoot\templates\routatic-proxy.config.json" -Raw
+    $content = $content.Replace('${ROUTATIC_PROXY_API_KEY}', $ApiKey)
+    $content | Set-Content "$ProxyDir\config.json" -Encoding UTF8 -NoNewline
+    Write-Host "  Done."
+} else {
+    Write-Host "  Skipped - copy template yourself (README Path A Step 4)."
+}
+Pause-Step
 
-# Step 5: Claude Code settings
-Write-Host "Step 5: Merge Claude Code settings"
-New-Item -ItemType Directory -Force -Path $ClaudeDir | Out-Null
+Write-Host "STEP 5/8 - Claude Code settings"
+Write-Host "  FROM: $RepoRoot\templates\claude-settings.json"
+Write-Host "  TO:   $ClaudeDir\settings.json"
 $Settings = "$ClaudeDir\settings.json"
 $Template = "$RepoRoot\templates\claude-settings.json"
-
-if (Test-Path $Settings) {
-    $Backup = "$Settings.backup.$(Get-Date -UFormat %s)"
-    Copy-Item $Settings $Backup
-    Write-Host "  Backed up to $Backup"
-    $cur = Get-Content $Settings -Raw | ConvertFrom-Json
-    $tpl = Get-Content $Template -Raw | ConvertFrom-Json
-    $merged = @{}
-    if ($cur.env) { $cur.env.PSObject.Properties | ForEach-Object { $merged[$_.Name] = $_.Value } }
-    $tpl.env.PSObject.Properties | ForEach-Object { $merged[$_.Name] = $_.Value }
-    $cur | Add-Member -NotePropertyName env -NotePropertyValue $merged -Force
-    $cur | ConvertTo-Json -Depth 10 | Set-Content $Settings -Encoding UTF8
+if (Confirm-Step "  Copy or merge Claude settings?") {
+    New-Item -ItemType Directory -Force -Path $ClaudeDir | Out-Null
+    if (Test-Path $Settings) {
+        $Backup = "$Settings.backup.$(Get-Date -UFormat %s)"
+        Copy-Item $Settings $Backup
+        Write-Host "  Backed up to $Backup"
+        $cur = Get-Content $Settings -Raw | ConvertFrom-Json
+        $tpl = Get-Content $Template -Raw | ConvertFrom-Json
+        $merged = @{}
+        if ($cur.env) { $cur.env.PSObject.Properties | ForEach-Object { $merged[$_.Name] = $_.Value } }
+        $tpl.env.PSObject.Properties | ForEach-Object { $merged[$_.Name] = $_.Value }
+        $cur | Add-Member -NotePropertyName env -NotePropertyValue $merged -Force
+        $cur | ConvertTo-Json -Depth 10 | Set-Content $Settings -Encoding UTF8
+    } else {
+        Copy-Item $Template $Settings
+    }
+    Write-Host "  Done."
 } else {
-    Copy-Item $Template $Settings
+    Write-Host "  Skipped."
 }
-Write-Host "  -> $Settings"
-Write-Host ""
+Pause-Step
 
-# Step 6: Start proxy
-Write-Host "Step 6: Start routatic-proxy"
-$env:ROUTATIC_PROXY_API_KEY = $ApiKey
-routatic-proxy stop 2>$null
-routatic-proxy serve -b
-Start-Sleep -Seconds 2
-routatic-proxy status
-Write-Host ""
-
-# Step 7: Autostart
-Write-Host "Step 7: Enable autostart on login"
-routatic-proxy autostart enable 2>$null
-Write-Host ""
-
-# Step 8: Verify
-Write-Host "Step 8: Verify"
-$body = '{"model":"deepseek-v4-flash","max_tokens":256,"messages":[{"role":"user","content":"Reply with exactly: ok"}]}'
-try {
-    $r = Invoke-RestMethod -Uri "http://127.0.0.1:3456/v1/messages" -Method Post `
-        -Headers @{ Authorization = "Bearer unused"; "anthropic-version" = "2023-06-01" } `
-        -ContentType "application/json" -Body $body
-    Write-Host "  Proxy OK" -ForegroundColor Green
-} catch {
-    Write-Host "  Proxy test failed. Check: $ProxyDir\routatic-proxy.log" -ForegroundColor Red
-    throw
+Write-Host "STEP 6/8 - Start routatic-proxy"
+if (Confirm-Step "  Start proxy on http://127.0.0.1:3456 ?") {
+    $env:ROUTATIC_PROXY_API_KEY = $ApiKey
+    routatic-proxy stop 2>$null
+    routatic-proxy serve -b
+    Start-Sleep -Seconds 2
+    routatic-proxy status
+} else {
+    Write-Host "  Skipped - run later: routatic-proxy serve -b"
 }
+Pause-Step
+
+Write-Host "STEP 7/8 - Autostart on login (optional)"
+if (Confirm-Step "  Enable autostart?") {
+    routatic-proxy autostart enable 2>$null
+} else {
+    Write-Host "  Skipped."
+}
+Pause-Step
+
+Write-Host "STEP 8/8 - Verify (free checks only, no tokens)"
+& "$RepoRoot\scripts\check.ps1"
 Write-Host ""
-Write-Host "Done. Run: claude" -ForegroundColor Green
-Write-Host "Logs:  $ProxyDir\routatic-proxy.log"
-Write-Host "Stop:  routatic-proxy stop"
+Write-Host "==========================================" -ForegroundColor Green
+Write-Host "  Setup complete. Run:  claude"
+Write-Host "  Re-check anytime:    .\scripts\check.ps1"
+Write-Host "=========================================="

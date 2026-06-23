@@ -2,26 +2,28 @@
 
 Use your **OpenCode Go** subscription ($5/mo) with the **Claude Code CLI** — without Anthropic billing.
 
-Claude Code speaks the Anthropic API. OpenCode Go speaks OpenAI-style endpoints. [routatic-proxy](https://github.com/routatic/proxy) sits in the middle and translates requests.
+Claude Code speaks the Anthropic API. OpenCode Go does not. [routatic-proxy](https://github.com/routatic/proxy) sits in the middle and translates requests.
 
 ```
 Claude Code CLI  →  routatic-proxy (localhost:3456)  →  OpenCode Go API
 ```
 
+> **New to this?** See [BEGINNER-SETUP.md](BEGINNER-SETUP.md) for a longer guide (paths, Scoop, what each file does).
+
 ---
 
 ## Prerequisites
 
-1. An [OpenCode Go](https://opencode.ai/docs/go/) subscription and API key
+1. [OpenCode Go](https://opencode.ai/docs/go/) subscription and API key
 2. [Node.js](https://nodejs.org/) (for Claude Code CLI)
 3. **Windows:** [Scoop](https://scoop.sh/)  
    **macOS/Linux:** [Homebrew](https://brew.sh/)
 
 ---
 
-## Quick setup (one command)
+## Quick setup (script)
 
-### Windows (PowerShell)
+**Windows (PowerShell):**
 
 ```powershell
 git clone https://github.com/abdullahmiraz/OPENCODE_CLAUDE_CLI.git
@@ -29,7 +31,7 @@ cd OPENCODE_CLAUDE_CLI
 .\scripts\setup.ps1
 ```
 
-### macOS / Linux / Git Bash
+**macOS / Linux / Git Bash:**
 
 ```bash
 git clone https://github.com/abdullahmiraz/OPENCODE_CLAUDE_CLI.git
@@ -37,24 +39,22 @@ cd OPENCODE_CLAUDE_CLI
 bash scripts/setup.sh
 ```
 
-The script will:
-
-1. Ask for your OpenCode Go API key (saved to `.env`, never committed)
-2. Install `routatic-proxy` and `claude`
-3. Write config files to your home directory
-4. Start the proxy and run a smoke test
-
 Then run:
 
 ```bash
 claude
 ```
 
+Check everything (no API calls, no tokens):
+
+```bash
+.\scripts\check.ps1    # Windows
+bash scripts/check.sh  # Bash
+```
+
 ---
 
-## Manual setup (step by step)
-
-Follow these if you prefer to do it yourself or the script fails.
+## Manual setup
 
 ### Step 1 — Get your OpenCode Go API key
 
@@ -86,57 +86,48 @@ npm install -g @anthropic-ai/claude-code
 
 ### Step 4 — Configure routatic-proxy
 
-1. Copy the template:
+```bash
+mkdir -p ~/.config/routatic-proxy
+cp templates/routatic-proxy.config.json ~/.config/routatic-proxy/config.json
+```
 
-   ```bash
-   mkdir -p ~/.config/routatic-proxy
-   cp templates/routatic-proxy.config.json ~/.config/routatic-proxy/config.json
-   ```
+Open `~/.config/routatic-proxy/config.json` and set your API key (replace `${ROUTATIC_PROXY_API_KEY}` with your real key).
 
-2. Set your API key (pick one):
+Or set an env var when starting the proxy:
 
-   ```bash
-   export ROUTATIC_PROXY_API_KEY="sk-your-key-here"
-   ```
-
-   Or edit `~/.config/routatic-proxy/config.json` and replace `${ROUTATIC_PROXY_API_KEY}` with your key.
+```bash
+export ROUTATIC_PROXY_API_KEY="sk-your-key-here"
+```
 
 ### Step 5 — Configure Claude Code
 
-1. Copy the env block into `~/.claude/settings.json`:
+```bash
+mkdir -p ~/.claude
+cp templates/claude-settings.json ~/.claude/settings.json
+```
 
-   ```bash
-   mkdir -p ~/.claude
-   ```
+If you already have `~/.claude/settings.json`, merge the `"env"` block from the template into it.
 
-   Merge `templates/claude-settings.json` into your existing `~/.claude/settings.json` under the `"env"` key.  
-   If the file does not exist, copy the template as-is:
+Key values:
 
-   ```bash
-   cp templates/claude-settings.json ~/.claude/settings.json
-   ```
-
-2. The important values:
-
-   | Variable | Value | Why |
-   |----------|-------|-----|
-   | `ANTHROPIC_BASE_URL` | `http://127.0.0.1:3456` | Point at local proxy |
-   | `ANTHROPIC_AUTH_TOKEN` | `unused` | Proxy ignores this |
-   | `ANTHROPIC_API_KEY` | *(empty)* | Auth handled by proxy |
-   | `ANTHROPIC_MODEL` | `deepseek-v4-flash` | Default OpenCode Go model |
-   | `ANTHROPIC_DEFAULT_SONNET_MODEL` | `deepseek-v4-flash` | Override Claude's Sonnet alias |
-   | `ANTHROPIC_DEFAULT_OPUS_MODEL` | `deepseek-v4-pro` | Override Claude's Opus alias |
-   | `ANTHROPIC_DEFAULT_HAIKU_MODEL` | `deepseek-v4-flash` | Override Claude's Haiku alias |
+| Variable | Value |
+|----------|-------|
+| `ANTHROPIC_BASE_URL` | `http://127.0.0.1:3456` |
+| `ANTHROPIC_AUTH_TOKEN` | `unused` |
+| `ANTHROPIC_API_KEY` | *(empty)* |
+| `ANTHROPIC_MODEL` | `deepseek-v4-flash` |
+| `ANTHROPIC_DEFAULT_SONNET_MODEL` | `deepseek-v4-flash` |
+| `ANTHROPIC_DEFAULT_OPUS_MODEL` | `deepseek-v4-pro` |
+| `ANTHROPIC_DEFAULT_HAIKU_MODEL` | `deepseek-v4-flash` |
 
 ### Step 6 — Start the proxy
 
 ```bash
-export ROUTATIC_PROXY_API_KEY="sk-your-key-here"
 routatic-proxy serve -b
 routatic-proxy status
 ```
 
-Optional — start on login:
+Optional autostart:
 
 ```bash
 routatic-proxy autostart enable
@@ -145,14 +136,10 @@ routatic-proxy autostart enable
 ### Step 7 — Verify
 
 ```bash
-curl -X POST http://127.0.0.1:3456/v1/messages \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer unused" \
-  -H "anthropic-version: 2023-06-01" \
-  -d '{"model":"deepseek-v4-flash","max_tokens":256,"messages":[{"role":"user","content":"say ok"}]}'
+curl http://127.0.0.1:3456/health
 ```
 
-You should get a JSON response with assistant text.
+You should see `"status":"ok"`.
 
 ### Step 8 — Run Claude Code
 
@@ -166,20 +153,12 @@ claude
 
 Edit `~/.config/routatic-proxy/config.json`:
 
-- **`models.default.model_id`** — main coding model
-- **`models.complex.model_id`** — hard tasks / reasoning
-- **`model_overrides`** — map Claude alias names to Go models
-
-List available Go models:
+- `models.default.model_id` — main model
+- `models.complex.model_id` — hard tasks
+- `model_overrides` — map Claude names to Go models
 
 ```bash
 routatic-proxy models
-```
-
-Or fetch from the API:
-
-```bash
-curl https://opencode.ai/zen/go/v1/models
 ```
 
 Popular Go models: `deepseek-v4-flash`, `deepseek-v4-pro`, `kimi-k2.6`, `glm-5.1`, `minimax-m2.7`, `qwen3.5-plus`
@@ -190,42 +169,31 @@ Popular Go models: `deepseek-v4-flash`, `deepseek-v4-pro`, `kimi-k2.6`, `glm-5.1
 
 | Problem | Fix |
 |---------|-----|
-| `routing failed` / `no eligible model` | Raise `max_tokens` in the request; reasoning models need ≥256 tokens |
-| `502 all models failed` | Check API key; run `routatic-proxy serve` in foreground and read logs |
-| Claude still hits Anthropic | Confirm `ANTHROPIC_BASE_URL` is `http://127.0.0.1:3456`, not `opencode.ai` |
-| Proxy not running | `routatic-proxy serve -b` or check autostart with `routatic-proxy autostart status` |
-| Connection refused on 3456 | Start proxy first: `routatic-proxy serve -b` |
+| Connection refused on 3456 | `routatic-proxy serve -b` |
+| Claude still hits Anthropic | `ANTHROPIC_BASE_URL` must be `http://127.0.0.1:3456` |
+| `validate` fails on placeholder key | Put your real key in `config.json` |
+| `routing failed` | Use `max_tokens` ≥ 256 for reasoning models |
 
-Logs: `~/.config/routatic-proxy/routatic-proxy.log`
-
+Logs: `~/.config/routatic-proxy/routatic-proxy.log`  
 Stop proxy: `routatic-proxy stop`
 
 ---
 
-## File layout
+## Repo layout
 
 ```
 OPENCODE_CLAUDE_CLI/
 ├── README.md
-├── .env.example              # copy to .env with your key (gitignored)
+├── BEGINNER-SETUP.md          ← detailed guide for new users
 ├── templates/
-│   ├── claude-settings.json  # Claude Code env vars
-│   └── routatic-proxy.config.json
+│   ├── routatic-proxy.config.json
+│   └── claude-settings.json
 └── scripts/
-    ├── setup.sh              # bash / Git Bash
-    └── setup.ps1             # Windows PowerShell
+    ├── setup.ps1 / setup.sh
+    └── check.ps1 / check.sh
 ```
 
-**Never commit** `.env` or files containing your API key.
-
----
-
-## How it works
-
-- Claude Code sends Anthropic-format requests to `localhost:3456`
-- routatic-proxy picks an OpenCode Go model (by scenario or override)
-- Requests are translated to OpenAI/Anthropic format and sent to `https://opencode.ai/zen/go/v1`
-- Responses are translated back so Claude Code thinks it talked to Anthropic
+Never commit `.env` or a config file with your real API key.
 
 ---
 
