@@ -24,7 +24,7 @@ Claude Code CLI  →  routatic-proxy (localhost:3456)  →  OpenCode Go API
 ### Windows (PowerShell)
 
 ```powershell
-git clone https://github.com/YOUR_USER/OPENCODE_CLAUDE_CLI.git
+git clone https://github.com/abdullahmiraz/OPENCODE_CLAUDE_CLI.git
 cd OPENCODE_CLAUDE_CLI
 .\scripts\setup.ps1
 ```
@@ -32,7 +32,7 @@ cd OPENCODE_CLAUDE_CLI
 ### macOS / Linux / Git Bash
 
 ```bash
-git clone https://github.com/YOUR_USER/OPENCODE_CLAUDE_CLI.git
+git clone https://github.com/abdullahmiraz/OPENCODE_CLAUDE_CLI.git
 cd OPENCODE_CLAUDE_CLI
 bash scripts/setup.sh
 ```
