@@ -235,9 +235,13 @@ claude
 
 ---
 
-# Option B — Guided script (pauses at each step)
+# Option B — Guided script
 
-Same steps as Option A, but the script **stops and asks you to confirm** before each action.
+Run the script and pick **1 (auto)** or **2 (manual)** at the start.
+
+**Auto** runs everything for you (install routatic-proxy, install `claude`, copy configs, start proxy, enable autostart). If something is missing (Scoop, Node, etc.), it stops and tells you what to install manually — then re-run the script.
+
+**Manual** prints the same steps as Option A above and exits.
 
 **Windows:**
 
@@ -253,20 +257,17 @@ cd OPENCODE_CLAUDE_CLI
 bash scripts/setup.sh
 ```
 
-### What the script does
+At the prompt:
 
-| Step | Action | You confirm |
-|------|--------|-------------|
-| 1 | Saves API key to `.env` (gitignored) | Enter key |
-| 2 | Installs `routatic-proxy` (skips if installed) | y/n |
-| 3 | Installs `claude` via npm (skips if installed) | y/n |
-| 4 | Copies template → `~/.config/routatic-proxy/config.json` | y/n |
-| 5 | Copies/merges → `~/.claude/settings.json` | y/n |
-| 6 | Starts proxy on port 3456 | y/n |
-| 7 | Optional autostart on login | y/n |
-| 8 | Runs check script (`/health` only) | automatic |
+```
+Choose one:
+  1) Auto   — script installs and configures everything
+  2) Manual — print steps, you do them yourself
 
-Then: `claude`
+Enter 1 or 2:
+```
+
+Then run: `claude`
 
 ---
 
@@ -288,3 +289,9 @@ Stop proxy: `routatic-proxy stop`
 ## Back to the short guide
 
 When you are comfortable, use [README.md](README.md) for the quick reference.
+
+---
+
+## Contact
+
+Questions or issues? Reach out on [LinkedIn](https://www.linkedin.com/in/abdullahmiraz/).

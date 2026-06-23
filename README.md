@@ -23,6 +23,13 @@ Claude Code CLI  →  routatic-proxy (localhost:3456)  →  OpenCode Go API
 
 ## Quick setup (script)
 
+Run the script and **choose 1 (auto) or 2 (manual)**:
+
+- **Auto** — installs routatic-proxy, Claude CLI, writes configs, starts proxy  
+- **Manual** — prints the steps; you do them yourself  
+
+If auto mode is blocked (e.g. Scoop or Node missing), it tells you what to install, then re-run the script.
+
 **Windows (PowerShell):**
 
 ```powershell
@@ -190,7 +197,8 @@ OPENCODE_CLAUDE_CLI/
 │   └── claude-settings.json
 └── scripts/
     ├── setup.ps1 / setup.sh
-    └── check.ps1 / check.sh
+    ├── check.ps1 / check.sh
+    └── test-sandbox.sh         ← isolated tests (no install, no tokens)
 ```
 
 Never commit `.env` or a config file with your real API key.
@@ -202,3 +210,9 @@ Never commit `.env` or a config file with your real API key.
 - [OpenCode Go docs](https://opencode.ai/docs/go/)
 - [routatic-proxy](https://github.com/routatic/proxy)
 - [Claude Code docs](https://docs.anthropic.com/en/docs/claude-code)
+
+---
+
+## Contact
+
+Questions or issues? Reach out on [LinkedIn](https://www.linkedin.com/in/abdullahmiraz/).
