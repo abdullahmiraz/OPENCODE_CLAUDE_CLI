@@ -1,6 +1,6 @@
-# OpenCode Go + Claude Code CLI
+# OpenCode Go or Zen + Claude Code CLI
 
-Use your **OpenCode Go** subscription ($5/mo) with the **Claude Code CLI** — without Anthropic billing.
+Use your **OpenCode Go** ($5/mo) or **OpenCode Zen** (pay-as-you-go) account with the **Claude Code CLI** — without Anthropic billing.
 
 Claude Code speaks the Anthropic API. OpenCode Go does not. [routatic-proxy](https://github.com/routatic/proxy) sits in the middle and translates requests.
 
@@ -14,7 +14,7 @@ Claude Code CLI  →  routatic-proxy (localhost:3456)  →  OpenCode Go API
 
 ## Prerequisites
 
-1. [OpenCode Go](https://opencode.ai/docs/go/) subscription and API key
+1. [OpenCode Go](https://opencode.ai/docs/go/) or [OpenCode Zen](https://opencode.ai) account and API key
 2. [Node.js](https://nodejs.org/) (for Claude Code CLI)
 3. **Windows:** [Scoop](https://scoop.sh/)  
    **macOS/Linux:** [Homebrew](https://brew.sh/)
@@ -23,7 +23,7 @@ Claude Code CLI  →  routatic-proxy (localhost:3456)  →  OpenCode Go API
 
 ## Quick setup (script)
 
-Run the script and **choose 1 (auto) or 2 (guided)**:
+Run the script and **choose Go or Zen**, then **auto (1) or guided (2)**:
 
 - **Auto** — installs routatic-proxy, Claude CLI, writes configs, starts proxy (no prompts)  
 - **Guided** — same steps, asks **y/Enter=yes** or **n=no** before each one (your consent)  
@@ -95,7 +95,9 @@ npm install -g @anthropic-ai/claude-code
 
 ```bash
 mkdir -p ~/.config/routatic-proxy
-cp templates/routatic-proxy.config.json ~/.config/routatic-proxy/config.json
+cp templates/routatic-proxy.config.json ~/.config/routatic-proxy/config.json   # Go
+# or for Zen only:
+cp templates/routatic-proxy.config.zen.json ~/.config/routatic-proxy/config.json
 ```
 
 Open `~/.config/routatic-proxy/config.json` and set your API key (replace `${ROUTATIC_PROXY_API_KEY}` with your real key).
@@ -193,7 +195,8 @@ OPENCODE_CLAUDE_CLI/
 ├── README.md
 ├── BEGINNER-SETUP.md          ← detailed guide for new users
 ├── templates/
-│   ├── routatic-proxy.config.json
+│   ├── routatic-proxy.config.json      # Go plan
+│   ├── routatic-proxy.config.zen.json  # Zen plan
 │   └── claude-settings.json
 └── scripts/
     ├── setup.ps1 / setup.sh   ← auto or guided (yes/no)

@@ -82,7 +82,7 @@ setup_sandbox_env
 echo "TEST 1 — Guided mode (choice 2, yes/no consent)"
 echo "------------------------------------------"
 # Pauses need bare Enter; confirms need y+Enter (alternating)
-GUIDED_INPUT=$'2\nsk-sandbox-guided-key\ny\ny\ny\ny\n'
+GUIDED_INPUT=$'1\n2\nsk-sandbox-guided-key\ny\ny\ny\ny\n'
 OUT_GUIDED="$(printf '%s' "$GUIDED_INPUT" | bash "$REPO/scripts/setup.sh" 2>&1)" || true
 if echo "$OUT_GUIDED" | grep -q "Guided setup"; then
   ok "Guided mode shows consent flow"
@@ -107,7 +107,7 @@ cp -r "$REPO_SRC" "$SANDBOX/repo-auto"
 rm -f "$SANDBOX/repo-auto/.env" 2>/dev/null || true
 export HOME="$SANDBOX/home-auto"
 mkdir -p "$HOME"
-printf '1\nsk-sandbox-auto-key\n' | bash "$SANDBOX/repo-auto/scripts/setup.sh" 2>&1 | tee "$SANDBOX/auto.log" || true
+printf '1\n1\nsk-sandbox-auto-key\n' | bash "$SANDBOX/repo-auto/scripts/setup.sh" 2>&1 | tee "$SANDBOX/auto.log" || true
 
 if [[ -f "$HOME/.config/routatic-proxy/config.json" ]] && grep -q "sk-sandbox-auto-key" "$HOME/.config/routatic-proxy/config.json"; then
   ok "Auto mode wrote proxy config with API key"

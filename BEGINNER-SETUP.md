@@ -260,14 +260,16 @@ cd OPENCODE_CLAUDE_CLI
 bash scripts/setup.sh
 ```
 
-At the prompt:
+At the prompts:
 
 ```
-Choose one:
+Which OpenCode plan?
+  1) Go  — $5/mo subscription
+  2) Zen — pay-as-you-go credits
+
+Setup style:
   1) Auto    — runs all steps automatically
   2) Guided  — same steps, asks y/Enter=yes or n=no before each one
-
-Enter 1 or 2:
 ```
 
 Then run: `claude`
@@ -279,7 +281,7 @@ Then run: `claude`
 | Problem | What to do |
 |---------|------------|
 | `scoop: command not found` | Install Scoop (see above) or use GitHub releases |
-| Where is `config.json`? | Copy from `templates/routatic-proxy.config.json` in this repo |
+| Where is `config.json`? | Copy from `templates/routatic-proxy.config.json` (Go) or `.zen.json` (Zen) |
 | `Connection refused` on 3456 | Run `routatic-proxy serve -b` |
 | `validate` fails on `${ROUTATIC_PROXY_API_KEY}` | Put your real key in the file |
 | Claude still uses Anthropic | `ANTHROPIC_BASE_URL` must be `http://127.0.0.1:3456` |

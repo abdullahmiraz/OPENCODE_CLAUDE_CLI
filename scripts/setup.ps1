@@ -1,9 +1,10 @@
-# OpenCode Go + Claude Code setup — auto (fast) or guided (yes/no per step).
+# OpenCode Go or Zen + Claude Code setup — auto (fast) or guided (yes/no per step).
 $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path $PSScriptRoot -Parent
 $ClaudeDir  = "$env:USERPROFILE\.claude"
 $ProxyDir   = "$env:USERPROFILE\.config\routatic-proxy"
 $EnvFile    = Join-Path $RepoRoot ".env"
+$OpenCodePlan = "go"
 
 function Write-Step($msg) {
     Write-Host ""
@@ -24,12 +25,45 @@ function Stop-Blocked($msg) {
     exit 1
 }
 
-function Choose-Mode {
+function Choose-Plan {
+    $plan = $null
+    if (Test-Path $EnvFile) {
+        Get-Content $EnvFile | ForEach-Object {
+            if ($_ -match '^OPENCODE_PLAN=(.+)$') { $plan = $Matches[1].Trim() }
+        }
+    }
+    if ($plan -in 'go','zen') {
+        $script:OpenCodePlan = $plan
+        return
+    }
     Write-Host "==========================================" -ForegroundColor Cyan
-    Write-Host "  OpenCode Go + Claude Code setup"
+    Write-Host "  OpenCode + Claude Code setup"
     Write-Host "=========================================="
     Write-Host ""
-    Write-Host "Choose one:"
+    Write-Host "Which OpenCode plan?"
+    Write-Host "  1) Go  - `$5/mo subscription (opencode.ai -> Zen -> Go)"
+    Write-Host "  2) Zen - pay-as-you-go credits (opencode.ai -> Zen)"
+    Write-Host ""
+    $choice = Read-Host "Enter 1 or 2 [default 1]"
+    if ($choice -eq '' -or $choice -eq '1' -or $choice -match '^(go|Go|GO)$') {
+        $script:OpenCodePlan = 'go'
+    } elseif ($choice -eq '2' -or $choice -match '^(zen|Zen|ZEN)$') {
+        $script:OpenCodePlan = 'zen'
+    } else {
+        Stop-Blocked "Invalid choice. Enter 1 or 2."
+    }
+}
+
+function Get-ProxyTemplate {
+    if ($OpenCodePlan -eq 'zen') {
+        return "$RepoRoot\templates\routatic-proxy.config.zen.json"
+    }
+    return "$RepoRoot\templates\routatic-proxy.config.json"
+}
+
+function Choose-Mode {
+    Write-Host ""
+    Write-Host "Setup style:"
     Write-Host "  1) Auto    - runs all steps automatically"
     Write-Host "  2) Guided  - same steps, asks yes/no before each one"
     Write-Host ""
@@ -45,20 +79,35 @@ function Get-ApiKey {
     $key = $null
     if (Test-Path $EnvFile) {
         Get-Content $EnvFile | ForEach-Object {
-            if ($_ -match '^OPENCODE_GO_API_KEY=(.+)$') { $key = $Matches[1].Trim() }
+            if ($_ -match '^OPENCODE_API_KEY=(.+)$') { $key = $Matches[1].Trim() }
+            if ($_ -match '^OPENCODE_GO_API_KEY=(.+)$' -and -not $key) { $key = $Matches[1].Trim() }
         }
     }
     if (-not $key) {
         Write-Step "STEP 1/8 - API key"
-        Write-Info "Get it from: https://opencode.ai -> Zen -> Go"
+        if ($OpenCodePlan -eq 'zen') {
+            Write-Info "Get it from: https://opencode.ai -> Zen"
+        } else {
+            Write-Info "Get it from: https://opencode.ai -> Zen -> Go"
+        }
         Write-Info "Paste your key and press Enter (saved to .env, gitignored)"
         $key = Read-Host "  API key"
         if (-not $key) { Stop-Blocked "API key is required." }
-        "OPENCODE_GO_API_KEY=$key" | Set-Content $EnvFile -Encoding UTF8
+        @(
+            "OPENCODE_PLAN=$OpenCodePlan"
+            "OPENCODE_API_KEY=$key"
+        ) | Set-Content $EnvFile -Encoding UTF8
         Write-Info "Saved to $EnvFile"
     } else {
         Write-Step "STEP 1/8 - API key"
-        Write-Info "Using key from $EnvFile"
+        Write-Info "Using key from $EnvFile ($OpenCodePlan plan)"
+        $content = Get-Content $EnvFile -Raw
+        if ($content -notmatch 'OPENCODE_PLAN=' -or $content -notmatch 'OPENCODE_API_KEY=') {
+            @(
+                "OPENCODE_PLAN=$OpenCodePlan"
+                "OPENCODE_API_KEY=$key"
+            ) | Set-Content $EnvFile -Encoding UTF8
+        }
     }
     $env:ROUTATIC_PROXY_API_KEY = $key
     return $key
@@ -85,7 +134,8 @@ function Install-ClaudeCli {
 
 function Write-ProxyConfig($ApiKey) {
     New-Item -ItemType Directory -Force -Path $ProxyDir | Out-Null
-    $content = Get-Content "$RepoRoot\templates\routatic-proxy.config.json" -Raw
+    $template = Get-ProxyTemplate
+    $content = Get-Content $template -Raw
     $content = $content.Replace('${ROUTATIC_PROXY_API_KEY}', $ApiKey)
     $content | Set-Content "$ProxyDir\config.json" -Encoding UTF8 -NoNewline
     Write-Info "Done."
@@ -195,7 +245,7 @@ function Run-Guided {
     }
 
     Write-Step "STEP 4/8 - Copy proxy config"
-    Write-Info "FROM: $RepoRoot\templates\routatic-proxy.config.json"
+    Write-Info "FROM: $(Get-ProxyTemplate)"
     Write-Info "TO:   $ProxyDir\config.json"
     if (Confirm-Step "  Copy template and insert your API key?") {
         Write-ProxyConfig $apiKey
@@ -231,6 +281,7 @@ function Run-Guided {
     Print-Done "Guided"
 }
 
+Choose-Plan
 $mode = Choose-Mode
 if ($mode -eq 'guided') {
     Run-Guided

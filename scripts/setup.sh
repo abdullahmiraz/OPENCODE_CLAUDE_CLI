@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# OpenCode Go + Claude Code setup — auto (fast) or guided (yes/no per step).
+# OpenCode Go or Zen + Claude Code setup — auto (fast) or guided (yes/no per step).
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -17,13 +17,36 @@ confirm() {
   [[ -z "$ans" || "${ans,,}" == "y" || "${ans,,}" == "yes" ]]
 }
 
+OPENCODE_PLAN=""
 SETUP_MODE=""
-choose_mode() {
+
+choose_plan() {
+  if [[ -f "$ENV_FILE" ]]; then
+    # shellcheck disable=SC1090
+    source "$ENV_FILE"
+  fi
+  if [[ -n "${OPENCODE_PLAN:-}" && "${OPENCODE_PLAN}" =~ ^(go|zen)$ ]]; then
+    return 0
+  fi
   echo "==========================================" >&2
-  echo "  OpenCode Go + Claude Code setup" >&2
+  echo "  OpenCode + Claude Code setup" >&2
   echo "==========================================" >&2
   echo "" >&2
-  echo "Choose one:" >&2
+  echo "Which OpenCode plan?" >&2
+  echo "  1) Go  — \$5/mo subscription (opencode.ai -> Zen -> Go)" >&2
+  echo "  2) Zen — pay-as-you-go credits (opencode.ai -> Zen)" >&2
+  echo "" >&2
+  read -rp "Enter 1 or 2 [default 1]: " choice
+  case "${choice:-1}" in
+    1|go|Go|GO) OPENCODE_PLAN="go" ;;
+    2|zen|Zen|ZEN) OPENCODE_PLAN="zen" ;;
+    *) echo "Invalid choice. Enter 1 or 2." >&2; exit 1 ;;
+  esac
+}
+
+choose_mode() {
+  echo "" >&2
+  echo "Setup style:" >&2
   echo "  1) Auto    — runs all steps automatically" >&2
   echo "  2) Guided  — same steps, asks yes/no before each one" >&2
   echo "" >&2
@@ -35,25 +58,51 @@ choose_mode() {
   esac
 }
 
+proxy_template() {
+  if [[ "$OPENCODE_PLAN" == "zen" ]]; then
+    echo "${REPO_ROOT}/templates/routatic-proxy.config.zen.json"
+  else
+    echo "${REPO_ROOT}/templates/routatic-proxy.config.json"
+  fi
+}
+
 load_api_key() {
   if [[ -f "$ENV_FILE" ]]; then
     # shellcheck disable=SC1090
     source "$ENV_FILE"
   fi
-  if [[ -z "${OPENCODE_GO_API_KEY:-}" ]]; then
+  OPENCODE_API_KEY="${OPENCODE_API_KEY:-${OPENCODE_GO_API_KEY:-}}"
+  if [[ -z "$OPENCODE_API_KEY" ]]; then
     step "STEP 1/8 — API key"
-    info "Get it from: https://opencode.ai -> Zen -> Go"
+    if [[ "$OPENCODE_PLAN" == "zen" ]]; then
+      info "Get it from: https://opencode.ai -> Zen"
+    else
+      info "Get it from: https://opencode.ai -> Zen -> Go"
+    fi
     info "Paste your key and press Enter (saved to .env, gitignored)"
-    read -rp "  API key: " OPENCODE_GO_API_KEY
-    [[ -n "$OPENCODE_GO_API_KEY" ]] || fail "API key is required."
-    echo "OPENCODE_GO_API_KEY=${OPENCODE_GO_API_KEY}" > "$ENV_FILE"
+    read -rp "  API key: " OPENCODE_API_KEY
+    [[ -n "$OPENCODE_API_KEY" ]] || fail "API key is required."
+    {
+      echo "OPENCODE_PLAN=${OPENCODE_PLAN}"
+      echo "OPENCODE_API_KEY=${OPENCODE_API_KEY}"
+    } > "$ENV_FILE"
     chmod 600 "$ENV_FILE"
     info "Saved to ${ENV_FILE}"
   else
     step "STEP 1/8 — API key"
-    info "Using key from ${ENV_FILE}"
+    info "Using key from ${ENV_FILE} (${OPENCODE_PLAN} plan)"
+    if [[ -z "${OPENCODE_PLAN:-}" ]]; then
+      OPENCODE_PLAN="go"
+    fi
+    if ! grep -q '^OPENCODE_PLAN=' "$ENV_FILE" 2>/dev/null || ! grep -q '^OPENCODE_API_KEY=' "$ENV_FILE" 2>/dev/null; then
+      {
+        echo "OPENCODE_PLAN=${OPENCODE_PLAN}"
+        echo "OPENCODE_API_KEY=${OPENCODE_API_KEY}"
+      } > "$ENV_FILE"
+      chmod 600 "$ENV_FILE"
+    fi
   fi
-  export ROUTATIC_PROXY_API_KEY="$OPENCODE_GO_API_KEY"
+  export ROUTATIC_PROXY_API_KEY="$OPENCODE_API_KEY"
 }
 
 install_routatic() {
@@ -97,11 +146,11 @@ to_native_path() {
 
 write_proxy_config() {
   mkdir -p "$PROXY_DIR"
-  cp "${REPO_ROOT}/templates/routatic-proxy.config.json" "${PROXY_DIR}/config.json"
+  cp "$(proxy_template)" "${PROXY_DIR}/config.json"
   local cfg
   cfg="$(to_native_path "${PROXY_DIR}/config.json")"
   if command -v node >/dev/null 2>&1; then
-    PROXY_CFG="$cfg" API_KEY="$OPENCODE_GO_API_KEY" node -e "
+    PROXY_CFG="$cfg" API_KEY="$OPENCODE_API_KEY" node -e "
       const fs=require('fs');
       const p=process.env.PROXY_CFG;
       let j=fs.readFileSync(p,'utf8');
@@ -109,7 +158,7 @@ write_proxy_config() {
       fs.writeFileSync(p,j);
     "
   elif command -v python3 >/dev/null 2>&1; then
-    PROXY_CFG="$cfg" API_KEY="$OPENCODE_GO_API_KEY" python3 -c "
+    PROXY_CFG="$cfg" API_KEY="$OPENCODE_API_KEY" python3 -c "
 import os, pathlib
 p=pathlib.Path(os.environ['PROXY_CFG'])
 p.write_text(p.read_text().replace('\${ROUTATIC_PROXY_API_KEY}', os.environ['API_KEY']))
@@ -146,7 +195,7 @@ write_claude_settings() {
 
 start_proxy() {
   routatic-proxy stop 2>/dev/null || true
-  ROUTATIC_PROXY_API_KEY="$OPENCODE_GO_API_KEY" routatic-proxy serve -b
+  ROUTATIC_PROXY_API_KEY="$OPENCODE_API_KEY" routatic-proxy serve -b
   sleep 2
   routatic-proxy status
 }
@@ -217,7 +266,7 @@ run_guided() {
   fi
 
   step "STEP 4/8 — Copy proxy config"
-  info "FROM: ${REPO_ROOT}/templates/routatic-proxy.config.json"
+  info "FROM: $(proxy_template)"
   info "TO:   ${PROXY_DIR}/config.json"
   if confirm "  Copy template and write your API key?"; then
     write_proxy_config
@@ -254,6 +303,7 @@ run_guided() {
   print_done "Guided"
 }
 
+choose_plan
 choose_mode
 if [[ "$SETUP_MODE" == "guided" ]]; then
   run_guided
