@@ -5,6 +5,7 @@ If you already know your way around the terminal, use the short [README.md](READ
 
 It explains:
 
+- **Go vs Zen** — which OpenCode plan you have and which template to use
 - What `~/.config/routatic-proxy/config.json` is and where it comes from
 - What Scoop is and how to install it (Windows)
 - Two ways to set up: **guided** (yes/no before each step) or **auto** (runs everything)
@@ -15,16 +16,25 @@ It explains:
 ## What you are building
 
 ```
-Claude Code  →  routatic-proxy (your PC, port 3456)  →  OpenCode Go
+Claude Code  →  routatic-proxy (your PC, port 3456)  →  OpenCode Go or Zen
 ```
 
-Claude Code thinks it talks to Anthropic. The proxy translates requests to OpenCode Go models.
+Claude Code thinks it talks to Anthropic. The proxy translates requests to OpenCode models.
+
+You need **one** of these OpenCode plans:
+
+| Plan | What it is | API key from |
+|------|------------|--------------|
+| **Go** | $5/month subscription, flat rate | [opencode.ai](https://opencode.ai) → Zen → **Go** |
+| **Zen** | Pay-as-you-go credits | [opencode.ai](https://opencode.ai) → **Zen** |
+
+Same API key account on OpenCode — but the proxy must use the **right template** for your plan (Go and Zen hit different endpoints).
 
 ---
 
 ## What you need first
 
-1. [OpenCode Go](https://opencode.ai/docs/go/) subscription + API key  
+1. [OpenCode Go](https://opencode.ai/docs/go/) **or** [OpenCode Zen](https://opencode.ai) account + API key  
 2. [Node.js](https://nodejs.org/) — for the `claude` command  
 3. **Windows:** Scoop (installs `routatic-proxy`) — see below  
    **Mac/Linux:** [Homebrew](https://brew.sh/)
@@ -46,9 +56,12 @@ Docs use `~` as shorthand for **your user folder**.
 Both files come from **this repo**:
 
 ```
-OPENCODE_CLAUDE_CLI/templates/routatic-proxy.config.json   ← copy this
-OPENCODE_CLAUDE_CLI/templates/claude-settings.json         ← copy or merge this
+OPENCODE_CLAUDE_CLI/templates/routatic-proxy.config.json       ← Go plan
+OPENCODE_CLAUDE_CLI/templates/routatic-proxy.config.zen.json   ← Zen plan
+OPENCODE_CLAUDE_CLI/templates/claude-settings.json               ← copy or merge this
 ```
+
+Pick **one** proxy template — Go subscribers use `.json`, Zen-only users use `.zen.json`. Claude settings are the same for both.
 
 **Open the proxy folder in File Explorer (Windows):**
 
@@ -81,12 +94,21 @@ scoop --version
 
 # Option A — Manual setup (you do every step)
 
-### Step 1 — Get your OpenCode Go API key
+### Step 1 — Get your OpenCode API key
+
+**If you have Go ($5/mo):**
 
 1. Open [opencode.ai](https://opencode.ai)  
 2. Sign in → **Zen** → subscribe to **Go**  
-3. Copy your API key (`sk-...`)  
-4. Never commit it to git or share it publicly
+3. Copy your API key (`sk-...`)
+
+**If you have Zen only (pay-as-you-go):**
+
+1. Open [opencode.ai](https://opencode.ai)  
+2. Sign in → **Zen**  
+3. Copy your API key (`sk-...`)
+
+Never commit your key to git or share it publicly.
 
 ---
 
@@ -123,9 +145,14 @@ claude --version
 
 ### Step 4 — Create proxy config
 
-From the folder where you cloned this repo:
+From the folder where you cloned this repo, copy the template that matches **your plan**:
 
-**Git Bash / Mac / Linux:**
+| Your plan | Template file |
+|-----------|---------------|
+| Go | `templates/routatic-proxy.config.json` |
+| Zen | `templates/routatic-proxy.config.zen.json` |
+
+**Git Bash / Mac / Linux (Go):**
 
 ```bash
 cd OPENCODE_CLAUDE_CLI
@@ -133,12 +160,28 @@ mkdir -p ~/.config/routatic-proxy
 cp templates/routatic-proxy.config.json ~/.config/routatic-proxy/config.json
 ```
 
-**Windows PowerShell:**
+**Git Bash / Mac / Linux (Zen):**
+
+```bash
+cd OPENCODE_CLAUDE_CLI
+mkdir -p ~/.config/routatic-proxy
+cp templates/routatic-proxy.config.zen.json ~/.config/routatic-proxy/config.json
+```
+
+**Windows PowerShell (Go):**
 
 ```powershell
 cd OPENCODE_CLAUDE_CLI
 New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.config\routatic-proxy"
 Copy-Item templates\routatic-proxy.config.json "$env:USERPROFILE\.config\routatic-proxy\config.json"
+```
+
+**Windows PowerShell (Zen):**
+
+```powershell
+cd OPENCODE_CLAUDE_CLI
+New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.config\routatic-proxy"
+Copy-Item templates\routatic-proxy.config.zen.json "$env:USERPROFILE\.config\routatic-proxy\config.json"
 ```
 
 **Add your API key** — open the file you just created and find:
@@ -235,9 +278,12 @@ claude
 
 ---
 
-# Option B — Setup script
+# Option B — Setup script (recommended)
 
-Run the script and pick **1 (auto)** or **2 (guided)** at the start.
+Run the script. It asks **two things** at the start:
+
+1. **Go or Zen** — picks the right proxy template  
+2. **Auto or Guided** — how much hand-holding you want  
 
 **Auto** runs all steps without asking (install routatic-proxy, install `claude`, copy configs, start proxy, enable autostart). If something is missing (Scoop, Node, etc.), it stops and tells you what to install — then re-run the script.
 
@@ -245,6 +291,15 @@ Run the script and pick **1 (auto)** or **2 (guided)** at the start.
 
 - **y** or **Enter** = yes, go ahead  
 - **n** = no, skip (install steps fail if you say no)
+
+The script saves your choices to `.env` in the repo folder (gitignored):
+
+```
+OPENCODE_PLAN=go
+OPENCODE_API_KEY=sk-your-key-here
+```
+
+Use `OPENCODE_PLAN=zen` if you only have Zen credits. Re-run the script to change plan or refresh configs. Old `.env` files with `OPENCODE_GO_API_KEY` still work (treated as Go).
 
 **Windows:**
 
@@ -276,15 +331,50 @@ Then run: `claude`
 
 ---
 
+## Go vs Zen — quick check
+
+If setup works but requests fail (billing error, model not found, 401):
+
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| You have **Go** but used Zen template | Wrong endpoint | Re-copy `routatic-proxy.config.json` or re-run script, pick **1) Go** |
+| You have **Zen only** but used Go template | Wrong endpoint | Re-copy `routatic-proxy.config.zen.json` or re-run script, pick **2) Zen** |
+| Not sure which plan | Check [opencode.ai](https://opencode.ai) billing | Go = $5/mo subscription; Zen = credit balance |
+
+In `config.json`, Go configs use `"provider": "opencode-go"` and Zen configs use `"provider": "opencode-zen"`.
+
+---
+
+## Change models
+
+Edit `~/.config/routatic-proxy/config.json`:
+
+- `models.default.model_id` — main model for most chat  
+- `models.complex.model_id` — harder tasks (refactors, architecture)  
+- `model_overrides` — map Claude model names to OpenCode models  
+
+List models available on your plan:
+
+```bash
+routatic-proxy models
+```
+
+Popular models on Go: `deepseek-v4-flash`, `deepseek-v4-pro`, `kimi-k2.6`, `glm-5.1`, `minimax-m2.7`, `qwen3.5-plus`  
+Zen has a wider catalog (including some free-tier models) — run `routatic-proxy models` to see yours.
+
+---
+
 ## Troubleshooting
 
 | Problem | What to do |
 |---------|------------|
 | `scoop: command not found` | Install Scoop (see above) or use GitHub releases |
-| Where is `config.json`? | Copy from `templates/routatic-proxy.config.json` (Go) or `.zen.json` (Zen) |
+| Where is `config.json`? | Copy from `templates/routatic-proxy.config.json` (Go) or `routatic-proxy.config.zen.json` (Zen) |
+| API errors after setup | Wrong plan template — see **Go vs Zen — quick check** above |
 | `Connection refused` on 3456 | Run `routatic-proxy serve -b` |
 | `validate` fails on `${ROUTATIC_PROXY_API_KEY}` | Put your real key in the file |
 | Claude still uses Anthropic | `ANTHROPIC_BASE_URL` must be `http://127.0.0.1:3456` |
+| `routing failed` | Use `max_tokens` ≥ 256 for reasoning models in config |
 
 Logs: `%USERPROFILE%\.config\routatic-proxy\routatic-proxy.log` (Windows) or `~/.config/routatic-proxy/routatic-proxy.log`  
 Stop proxy: `routatic-proxy stop`
